@@ -1,0 +1,356 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Drawing;
+using System.Globalization;
+using System.Threading;
+using System.Security.Cryptography;
+
+namespace my_pp
+{
+	public class bit_image
+	{
+
+		public static void BitmapTo2()
+		{
+			Image Img = Image.FromFile("C:\\Users\\Asus-\\Desktop\\my.png");
+			Bitmap bmp = new Bitmap(Img);
+			// 1.
+			double treshold = 0.6;
+
+			Bitmap dst = new Bitmap(bmp.Width, bmp.Height);
+
+			for (int i = 0; i < bmp.Width; i++)
+			{
+				for (int j = 0; j < bmp.Height; j++)
+				{
+					// 1.
+					dst.SetPixel(i, j, bmp.GetPixel(i, j).GetBrightness() < treshold ? System.Drawing.Color.Black : System.Drawing.Color.White);
+				}
+			}
+			dst.Save("C:\\Users\\Asus-\\Desktop\\my2.png");
+		}
+	}
+	public class bp
+	{
+		public static List<point> BP_set(byte bp1, byte bp2, Region_1 reg)
+		{
+			List<point> l = reg.l;
+			int count_point = Convert.ToInt32(reg.count_point);
+			if (bp1 == 1)
+			{
+				point max_point_by_y = l[0];
+				int index_max_point_by_y = 0;
+				foreach (point elm in l)
+				{
+					if (elm.get_y() > max_point_by_y.get_y())
+					{
+						max_point_by_y = elm;
+						index_max_point_by_y = l.IndexOf(elm);
+					}
+				}
+				int crazy = index_max_point_by_y;
+				if (crazy != 0)
+				{
+					List<point> f = new List<point>();
+					for (int i = index_max_point_by_y; i < count_point - 1; i++)
+						f.Add(l[i]);
+					for (int i = 0; i < index_max_point_by_y + 1; i++)
+						f.Add(l[i]);
+					l = f;
+				}
+
+				if ((bp2 == 0 && l[1].get_x() < l[0].get_x()) || (bp2 == 1 && l[1].get_x() > l[0].get_x()))
+				{
+					List<point> f = new List<point>();
+					for (int i = count_point - 1; i >= 0; i--)
+						f.Add(l[i]);
+					l = f;
+				}
+			}
+			else
+			{
+				point min_point_by_y = l[0];
+				int index_min_point_by_y = 0;
+				foreach (point elm in l)
+				{
+					if (elm.get_y() < min_point_by_y.get_y())
+					{
+						min_point_by_y = elm;
+						index_min_point_by_y = l.IndexOf(elm);
+					}
+
+				}
+				int crazy = index_min_point_by_y;
+				if (crazy != 0)
+				{
+					List<point> f = new List<point>();
+					for (int i = index_min_point_by_y; i < count_point - 1; i++)
+						f.Add(l[i]);
+					for (int i = 0; i < index_min_point_by_y + 1; i++)
+						f.Add(l[i]);
+					l = f;
+				}
+				if ((bp2 == 0 && l[1].get_x() > l[0].get_x()) || (bp2 == 1 && l[1].get_x() < l[0].get_x()))
+				{
+					List<point> f = new List<point>();
+					for (int i = count_point - 1; i >= 0; i--)
+						f.Add(l[i]);
+					l = f;
+				}
+			}
+			return l;
+		}
+
+		public static void BP_get(Region_1 reg, ref Byte bp1, ref Byte bp2)
+		{
+			List<point> l = reg.l;
+			int count_point = Convert.ToInt32(reg.count_point);
+			point max_point_by_y = l[0];
+			int index_max_point_by_y = 0;
+			point min_point_by_y = l[0];
+			int index_min_point_by_y = 0;
+
+			foreach (point elm in l)
+			{
+				if (elm.get_y() > max_point_by_y.get_y())
+				{
+					max_point_by_y = elm;
+					index_max_point_by_y = l.IndexOf(elm);
+				}
+				else if (elm.get_y() < min_point_by_y.get_y())
+				{
+					min_point_by_y = elm;
+					index_min_point_by_y = l.IndexOf(elm);
+				}
+
+			}
+
+			if (index_max_point_by_y == 0)
+			{
+				bp1 = 1;
+				if (l[1].get_x() > l[0].get_x())
+				{
+					bp2 = 0;
+				}
+				else bp2 = 1;
+			}
+			else if (index_min_point_by_y == 0)
+			{
+				bp1 = 0;
+				if (l[1].get_x() < l[0].get_x())
+				{
+					bp2 = 0;
+				}
+				else bp2 = 1;
+			}
+			else Console.WriteLine("Error.It is not possible to count bits!");
+		}
+	}
+
+	public class point
+	{
+		decimal x;
+		decimal y;
+		public point(decimal xx, decimal yy)
+		{
+			x = xx;
+			y = yy;
+		}
+		public string pointToString()
+		{
+			// «амена зап€тых на точки нужна
+			string x_y = x + " " + y;
+			return x_y;
+		}
+
+		public decimal get_y()
+		{
+			return y;
+		}
+
+		public decimal get_x()
+		{
+			return x;
+		}
+
+	}
+
+	public class Region_1
+	{
+		public List<point> l;
+		public string count_point;
+		public string Pen_field;
+		public string Brush_field;
+		public Region_1(List<point> ll, string count_point_loc, string P_f, string B_f)
+		{
+			l = ll;
+			count_point = count_point_loc;
+			Pen_field = P_f;
+			Brush_field = B_f;
+
+		}
+
+	}
+
+
+	class MainClass
+	{
+
+
+		public static void Main(string[] args)
+		{
+			decimal minx=0;
+			decimal miny=0;
+			decimal maxx=0;
+			decimal maxy=0;
+			bit_image.BitmapTo2();
+			List<Region_1> R = new List<Region_1>();
+			int j = 0;
+			int ind = 0;
+			try
+			{   // Open the text file using a stream reader.
+				using (StreamReader sr = new StreamReader("C:\\Users\\Asus-\\Desktop\\tester.mif"))
+				{
+					using (System.IO.StreamWriter file = new System.IO.StreamWriter("C:\\Users\\Asus-\\Desktop\\tup.mif"))
+					{
+						// —писок, состо€щий из списков точек-вершин -полигон
+
+						while (!sr.EndOfStream)
+						{
+							string line = sr.ReadLine();
+							string Reg = ("Region 1");
+							string Bounds = ("Bounds");
+
+							if (!line.Contains(Reg))
+							{
+								//Console.WriteLine(line);
+								file.WriteLine(line);
+							}
+
+							if (line.Contains(Bounds))
+							{
+								var str = line.Split(' ', ',', '(', ')');
+								minx = Convert.ToDecimal(str[6], CultureInfo.GetCultureInfo("en-US"));
+								miny = Convert.ToDecimal(str[8], CultureInfo.GetCultureInfo("en-US"));
+								maxx = Convert.ToDecimal(str[11], CultureInfo.GetCultureInfo("en-US"));
+								maxy = Convert.ToDecimal(str[13], CultureInfo.GetCultureInfo("en-US"));
+								file.WriteLine(line);
+							}
+
+
+							if (line.Contains(Reg))
+							{
+								j++;
+								List<point> l = new List<point>();
+								int count_point_loc = Convert.ToInt32(sr.ReadLine());
+								//Console.WriteLine("count_point: " + count_point_loc);
+								for (int i = 0; i < count_point_loc; i++)
+								{
+									string x_y_point = sr.ReadLine();
+									decimal x = 0;
+									decimal y = 0;
+									var str = x_y_point.Split(' ');
+									x = Convert.ToDecimal(str[0], CultureInfo.GetCultureInfo("en-US"));
+									y = Convert.ToDecimal(str[1], CultureInfo.GetCultureInfo("en-US"));
+									point p = new point(x, y);
+									l.Add(p);
+								}
+
+								string vedro1 = sr.ReadLine();
+								string vedro2 = sr.ReadLine();
+
+								Region_1 RR = new Region_1(l, Convert.ToString(count_point_loc), vedro1, vedro2);
+								R.Add(RR);
+							}
+						}
+
+
+						try
+						{
+							using (System.IO.StreamWriter file_f = new System.IO.StreamWriter("C:\\Users\\Asus-\\Desktop\\bp_befor.txt"))
+							{
+								foreach (Region_1 elm in R)
+								{
+									Random rnd = new Random();
+									Byte[] b_before = new Byte[2 * j];
+									b_before[ind] = (Byte)rnd.Next(0, 2);
+									ind++;
+									Thread.Sleep(5);
+									b_before[ind] = (Byte)rnd.Next(0, 2);
+									file_f.WriteLine(Convert.ToString(b_before[ind - 1]) + " " + Convert.ToString(b_before[ind]));
+									elm.l = bp.BP_set(b_before[ind - 1], b_before[ind], elm);
+									ind++;
+									Thread.Sleep(5);
+								}
+								file_f.Close();
+							}
+						}
+						catch (Exception e)
+						{
+							Console.WriteLine("The file Error:");
+							Console.WriteLine(e.Message);
+						}
+						//¬ывод полигонов в файл после встраивани€
+						foreach (Region_1 RR in R)
+						{
+							file.WriteLine("Region 1");
+							file.WriteLine("  " + Convert.ToString(RR.count_point));
+
+							//запись полигонов точек полигона в файл
+							foreach (point pp in RR.l)
+							{
+								file.WriteLine(pp.pointToString().Replace(",", "."));
+							}
+							file.WriteLine("  " + RR.Pen_field);
+							file.WriteLine("  " + RR.Brush_field);
+						}
+						file.Close();
+					}
+
+
+					try
+					{
+						using (System.IO.StreamWriter file = new System.IO.StreamWriter("C:\\Users\\Asus-\\Desktop\\bp_after.txt"))
+						{
+
+							ind = 0;
+							foreach (Region_1 elm in R)
+							{
+								Byte[] b_after = new Byte[2 * j];
+								ind++;
+								bp.BP_get(elm, ref b_after[ind - 1], ref b_after[ind]);// передача по ссылке 
+								file.WriteLine(Convert.ToString(b_after[ind - 1]) + " " + Convert.ToString(b_after[ind]));
+
+								ind++;
+							}
+							file.Close();
+						}
+					}
+					catch (Exception e)
+					{
+						Console.WriteLine("The file Error:");
+						Console.WriteLine(e.Message);
+					}
+
+					//file.Close();
+					Console.WriteLine("Count of Region 1 = " + j);
+				}
+
+
+
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("The file could not be read:");
+				Console.WriteLine(e.Message);
+			}
+
+			Console.WriteLine("The end");
+			Console.ReadKey();
+
+		}
+	}
+}

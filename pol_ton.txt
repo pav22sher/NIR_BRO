@@ -1,0 +1,620 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Drawing;
+using System.Globalization;
+
+namespace my_pp
+{
+	//три бита оттенка серого
+	public class three_bits
+	{
+		public int b1;
+		public int b2;
+		public int b3;
+		public three_bits(int nb1, int nb2, int nb3)
+		{
+			b1 = nb1;
+			b2 = nb2;
+			b3 = nb3;
+		}
+		static public three_bits get_obj(float RGB)
+		{
+			three_bits obj;
+			if ((int)RGB == 0) obj = new three_bits(0, 0, 0);
+			else if (RGB > 0 && RGB <= 42) obj = new three_bits(0, 0, 1);
+			else if (RGB > 42 && RGB <= 84) obj = new three_bits(0, 1, 0);
+			else if (RGB > 84 && RGB <= 126) obj = new three_bits(0, 1, 1);
+			else if (RGB > 126 && RGB <= 168) obj = new three_bits(1, 0, 0);
+			else if (RGB > 168 && RGB <= 210) obj = new three_bits(1, 0, 1);
+			else if (RGB > 210 && RGB <= 252) obj = new three_bits(1, 1, 0);
+			else obj = new three_bits(1, 1, 1); //if (RGB > 252 && RGB <= 255) 
+			return obj;
+		}
+		public int get_RGB()
+		{
+			int rgb;
+			if (b1 == 0 && b2 == 0 && b3 == 0) rgb = 0;
+			else if (b1 == 0 && b2 == 0 && b3 == 1) rgb = 42;
+			else if (b1 == 0 && b2 == 1 && b3 == 0) rgb = 84;
+			else if (b1 == 0 && b2 == 1 && b3 == 1) rgb = 126;
+			else if (b1 == 1 && b2 == 0 && b3 == 0) rgb = 168;
+			else if (b1 == 1 && b2 == 0 && b3 == 1) rgb = 210;
+			else if (b1 == 1 && b2 == 1 && b3 == 0) rgb = 252;
+			else rgb = 255; //if (b1 == 1 && b2 == 1 && b3 == 1)
+			return rgb;
+		}
+	}
+	
+	//класс для сохранения исходного изображения 
+	//и его восстановление в другой файл
+	public class image_process
+	{
+		//переводим изображение в (черно-белое)полутоновое и сохраняем как массив
+		public static three_bits[,] save_image()
+		{
+			Image Img = Image.FromFile("C:\\Users\\Asus-\\Desktop\\НИРС\\my.png");//загружаем изображение 
+			Bitmap bmp = new Bitmap(Img);
+			three_bits[,] mas = new three_bits[bmp.Width, bmp.Height];
+			for (int i = 0; i < bmp.Width; i++)
+			{//записываем в массив результат перевода изображения в черно-белое
+				for (int j = 0; j < bmp.Height; j++)
+				{
+					float RGB;
+					RGB = (bmp.GetPixel(i, j).R + bmp.GetPixel(i, j).G + bmp.GetPixel(i, j).B) / 3;
+					mas[i, j] = three_bits.get_obj(RGB);
+					Color newcol = Color.FromArgb(mas[i,j].get_RGB(),mas[i,j].get_RGB(),mas[i,j].get_RGB());
+					bmp.SetPixel(i,j, newcol);
+				}
+			}
+			//ширина и высота необхадимы , чтобы востановить изображение такого же размера
+			Region_1.Width = bmp.Width;
+			Region_1.Height = bmp.Height;
+			//выводим на консоль для контроля 
+			Console.WriteLine("Width= " + Region_1.Width);
+			Console.WriteLine("Height= " + Region_1.Height);
+			bmp.Save("C:\\Users\\Asus-\\Desktop\\НИРС\\pol_ton.png");//сохраняем изображение в новом файле 
+			return mas;
+		}
+
+		//восстанавливаем черно-белое изображение по массиву
+		public static void restore_image(three_bits[,] mas)
+		{
+			Boolean flag = false;
+			//пока не узнаем все пиксели
+			while (!flag)
+			{
+				mas = сonversion(mas);//применять обработку изображения окном
+				int kol_max = mas.GetLength(0) * mas.GetLength(1);//количество пикселей всего 
+				int kol_now = 0;//счетчик неопределенных пикселей
+				for (int i = 0; i < mas.GetLength(0); i++)
+					for (int j = 0; j < mas.GetLength(1); j++)
+						if (mas[i, j].b1 != -1) kol_now += 1;//если пиксель определен увиличиваем счетчик
+				if (kol_max == kol_now) flag = true;//заканчиваем когда все пиксели определены
+			}
+			//mas = сonversion(mas);
+			Bitmap dst = new Bitmap(Region_1.Width, Region_1.Height);
+			//восстанавливаем черно-белое изображение по массиву
+			for (int i = 0; i < Region_1.Width; i++)
+				for (int j = 0; j < Region_1.Height; j++)
+				{
+					Color my_color = new Color();
+					my_color = Color.FromArgb(mas[i, j].get_RGB(), mas[i, j].get_RGB(), mas[i, j].get_RGB());
+					dst.SetPixel(i, j, my_color);
+				}
+			dst.Save("C:\\Users\\Asus-\\Desktop\\НИРС\\my2.png");//сохраняем изображение в новом файле 
+		}
+
+		//обрабатываем окном изображение
+		public static three_bits[,] сonversion(three_bits[,] input)
+		{
+			int[,] kernel = new int[3, 3];//матрица весов
+			for (int i = 0; i < kernel.GetLength(0); i++)
+				for (int j = 0; j < kernel.GetLength(1); j++)
+					if (i == 2 && j == 2) kernel[i, j] = 0;//не учитываем значение центрального эллемета (он =-1)
+					else kernel[i, j] = 1;
+			int width = input.GetLength(0);
+			int height = input.GetLength(1);
+			three_bits[,] output = new three_bits[width, height];
+			int kernelWidth = kernel.GetLength(0);
+			int kernelHeight = kernel.GetLength(1);
+			for (int x = 0; x < width; x++)
+			{
+				for (int y = 0; y < height; y++)
+				{
+					int Sum = 0, kSum = 0;
+					for (int i = 0; i < kernelWidth; i++)
+					{
+						for (int j = 0; j < kernelHeight; j++)
+						{
+							//координаты пикселей окна(ядра свертки) в изображение с центром в точке с координатоми x,y
+							int pixelPosX = x + (i - (kernelWidth / 2));
+							int pixelPosY = y + (j - (kernelHeight / 2));
+							//проверяем на коректность (не выходят ли координаты за границы изображения)
+							if ((pixelPosX < 0) || (pixelPosX >= width) || (pixelPosY < 0) || (pixelPosY >= height)) continue;
+							int value;//временная переменная
+							if (input[pixelPosX, pixelPosY].b1 == -1) value = 0;
+							else
+							{//запоминаем очередной пиксль окна
+								value = input[pixelPosX, pixelPosY].get_RGB();
+								kSum += kernel[i, j];//сумма весов
+							}
+							Sum += value * kernel[i, j];
+						}
+					}//произвоим замену только для неопределенных пикселей
+					if (input[x, y].b1 != -1 || kSum == 0) output[x, y] = three_bits.get_obj(input[x, y].get_RGB());
+					else output[x, y] = three_bits.get_obj(Sum / kSum);
+				}
+			}
+			return output;
+		}
+	}
+	public class bp
+	{
+		//для встраивания 3 битов в регион 
+		public static List<point> BP_set(Region_1 reg, int bp1, int bp2, int bp3)
+		{
+			List<point> l = reg.l;//списак точек региона
+			int count_point = Convert.ToInt32(reg.count_point);//количество точек в регионе
+			if (bp2 == 1)//max
+			{//bp1=0 - по x, bp1=1 - по y
+				point max_point = l[0];//точка max по x или по y
+				int index_max = 0;//индекс этой точки
+				foreach (point elm in l)
+				{//находим максимум
+					if (bp1 == 0 && elm.get_x() > max_point.get_x()
+					|| bp1 == 1 && elm.get_y() > max_point.get_y())
+					{
+						max_point = elm;
+						index_max = l.IndexOf(elm);
+					}//если нашли элемент такой же как максимум , то смотрим по второй координте 
+					else if (bp1 == 0 && elm.get_x() == max_point.get_x() && elm.get_y() > max_point.get_y()
+					|| bp1 == 1 && elm.get_y() == max_point.get_y() && elm.get_x() > max_point.get_x())
+						index_max = l.IndexOf(elm);//если он больше по второй координате, то переопределяем индекс
+				}
+				if (index_max != 0)
+				{//если сейчас первый элемент не максимальный , то переписываем list так ,чтобы он оказался первым
+					List<point> f = new List<point>();
+					for (int i = index_max; i < count_point - 1; i++)
+						f.Add(l[i]);
+					for (int i = 0; i < index_max + 1; i++)
+						f.Add(l[i]);
+					l = f;
+				}
+				//bp3 по часовой стрелке «0», а против «1»
+				//сравниваем следующую и предыдущую точки
+				if (bp1 == 0 && ((bp3 == 0 && l[1].get_y() > l[count_point - 2].get_y()) ||
+					(bp3 == 1 && l[1].get_y() < l[count_point - 2].get_y()))
+					|| bp1 == 1 && ((bp3 == 0 && l[1].get_x() < l[count_point - 2].get_x()) ||
+					(bp3 == 1 && l[1].get_x() > l[count_point - 2].get_x())))
+				{//если обход на данный момент не правильный меняем направления , т.е. переписываем в обратном порядке
+					List<point> f = new List<point>();
+					for (int i = count_point - 1; i >= 0; i--)
+						f.Add(l[i]);
+					l = f;
+				}
+			}
+			else //min
+			{
+				//в зависимости от bp1 min по x или y
+				point min_point = l[0];//точка min , с начала это первая точка в списке
+				int index_min = 0;//индекс этой точки, с начала это индекс первого элемента
+				foreach (point elm in l)
+				{//вычисляем минимум
+					if (bp1 == 0 && elm.get_x() < min_point.get_x()
+					|| bp1 == 1 && elm.get_y() < min_point.get_y())
+					{
+						min_point = elm;
+						index_min = l.IndexOf(elm);
+					}
+					//если нашли такой же элемент как минимум, то сравниваем по второй координате 
+					else if (bp1 == 0 && elm.get_x() == min_point.get_x() && elm.get_y() < min_point.get_y()
+					|| bp1 == 1 && elm.get_y() == min_point.get_y() && elm.get_x() < min_point.get_x())
+						index_min = l.IndexOf(elm);//если меньше по второй координате ,то переопределяем индекс
+				}
+				if (index_min != 0)
+				{//если сейчас первый элемент не min, то переписываем list так ,чтобы первый был min
+					List<point> f = new List<point>();
+					for (int i = index_min; i < count_point - 1; i++)
+						f.Add(l[i]);
+					for (int i = 0; i < index_min + 1; i++)
+						f.Add(l[i]);
+					l = f;
+				}
+				//bp3 по часовой стрелке «0», а против «1»
+				//сравниваем следующую и предыдущую точки отнасительно первой в списке
+				if (bp1 == 0 && ((bp3 == 0 && l[1].get_y() < l[count_point - 2].get_y()) ||
+					(bp3 == 1 && l[1].get_y() > l[count_point - 2].get_y()))
+					|| bp1 == 1 && ((bp3 == 0 && l[1].get_x() > l[count_point - 2].get_x()) ||
+							(bp3 == 1 && l[1].get_x() < l[count_point - 2].get_x())))
+				{//если обход сейчас в другую сторону меняем его путем переписывания в обратном порядке
+					List<point> f = new List<point>();
+					for (int i = count_point - 1; i >= 0; i--)
+						f.Add(l[i]);
+					l = f;
+				}
+			}
+			return l;//вох=зращаем список точек
+		}
+
+		//извлекаем встроенные биты
+		public static void BP_get(Region_1 reg, ref int bp1, ref int bp2, ref int bp3)
+		{
+			//обработка по y
+			List<point> l = reg.l;
+			int count_point = Convert.ToInt32(reg.count_point);
+			point max_point_by_y = l[0];
+			int index_max_point_by_y = 0;
+			point min_point_by_y = l[0];
+			int index_min_point_by_y = 0;
+			foreach (point elm in l)
+			{//находим максимум и минимум по y 
+				if (elm.get_y() > max_point_by_y.get_y())
+				{
+					max_point_by_y = elm;
+					index_max_point_by_y = l.IndexOf(elm);
+				}//если значения равны ,то смотрим по второй координате
+				else if (elm.get_y() == max_point_by_y.get_y() && elm.get_x() > max_point_by_y.get_x())
+					index_max_point_by_y = l.IndexOf(elm);//меняем индекс ,если больше по второй координате
+				if (elm.get_y() < min_point_by_y.get_y())
+				{
+					min_point_by_y = elm;
+					index_min_point_by_y = l.IndexOf(elm);
+				}//если значения равны ,то смотрим по второй координате
+				else if (elm.get_y() == min_point_by_y.get_y() && elm.get_x() < min_point_by_y.get_x())
+					index_min_point_by_y = l.IndexOf(elm);//меняем индекс ,если меньше по второй координате
+			}
+			//по x bp1=0 или по y bp1=1 //min bp2=0 или max bp2=1
+			//bp3=0 по часовой стрелке или bp3=1 против часовой стрелке
+			if (index_max_point_by_y == 0)
+			{
+				bp1 = 1;
+				bp2 = 1;
+				if (l[1].get_x() > l[count_point - 2].get_x())
+				{
+					bp3 = 0;
+				}
+				else bp3 = 1;
+			}
+			else if (index_min_point_by_y == 0)
+			{
+				bp1 = 1;
+				bp2 = 0;
+				if (l[1].get_x() < l[count_point - 2].get_x())
+				{
+					bp3 = 0;
+				}
+				else bp3 = 1;
+			}
+			else
+			{//обработка по x
+				point max_point_by_x = l[0];
+				int index_max_point_by_x = 0;
+				point min_point_by_x = l[0];
+				int index_min_point_by_x = 0;
+				foreach (point elm in l)
+				{//находим максимум по x с наибольшем y и минимум по x с наименьшем y
+					if (elm.get_x() > max_point_by_x.get_x())
+					{
+						max_point_by_x = elm;
+						index_max_point_by_x = l.IndexOf(elm);
+					}
+					else if (elm.get_x() == max_point_by_x.get_x() && elm.get_y() > max_point_by_x.get_y())
+						index_max_point_by_x = l.IndexOf(elm);
+					if (elm.get_x() < min_point_by_x.get_x())
+					{
+						min_point_by_x = elm;
+						index_min_point_by_x = l.IndexOf(elm);
+					}
+					else if (elm.get_x() == min_point_by_x.get_x() && elm.get_y() < min_point_by_x.get_y())
+						index_min_point_by_x = l.IndexOf(elm);
+				}
+				//по x bp1=0 или по y bp1=1 //min bp2=0 или max bp2=1
+				//bp3=0 по часовой стрелке или bp3=1 против часовой стрелке
+				if (index_max_point_by_x == 0)
+				{
+					bp1 = 0;
+					bp2 = 1;
+					if (l[1].get_y() < l[count_point - 2].get_y())
+					{
+						bp3 = 0;
+					}
+					else bp3 = 1;
+				}
+				else if (index_min_point_by_x == 0)
+				{
+					bp1 = 0;
+					bp2 = 0;
+					if (l[1].get_y() > l[count_point - 2].get_y())
+					{
+						bp3 = 0;
+					}
+					else bp3 = 1;
+				}
+				else Console.WriteLine("Error.It is not possible to count bits!");
+			}
+		}
+
+		//метод для вычислени положения встраемых и извлекаемых битов в массиве
+		public static void get_index(Region_1 reg, ref int indx, ref int indy)
+		{
+			decimal step_x = (Region_1.maxx - Region_1.minx) / Region_1.Width;
+			decimal step_y = (Region_1.maxy - Region_1.miny) / Region_1.Height;
+			indx = (int)((reg.avg_x - Region_1.minx) / step_x);
+			indy = (int)((reg.avg_y - Region_1.miny) / step_y);
+			/*indx2 = indx - 2;
+			indx3 = indx + 2;
+			if (indx2 < 0) indx2 = indx + 3;
+			if (indx3 >= Region_1.Width) indx3 = indx - 3;*/
+		}
+	}
+
+	public class point
+	{
+		decimal x;
+		decimal y;
+		public point(decimal xx, decimal yy)
+		{
+			x = xx;
+			y = yy;
+		}
+		public string pointToString()
+		{
+			string x_y = x + " " + y;
+			return x_y;
+		}
+
+		public decimal get_y()
+		{
+			return y;
+		}
+
+		public decimal get_x()
+		{
+			return x;
+		}
+
+	}
+
+	public class Region_1
+	{
+		public List<point> l;
+		public string count_point;
+		public string Pen_field;
+		public string Brush_field;
+		public static decimal minx = 0;//min всех регионов по x
+		public static decimal miny = 0;//min всех регионов по y
+		public static decimal maxx = 0;//max всех регионов по x
+		public static decimal maxy = 0;//max всех регионов по y
+		public static int Width = 0;//ширина изображения 
+		public static int Height = 0;//высота изображения 
+		public decimal avg_x = 0;//центр региона по x
+		public decimal avg_y = 0;//центр региона по y
+		public Region_1(List<point> ll, string count_point_loc, string P_f, string B_f)
+		{
+			l = ll;
+			count_point = count_point_loc;
+			Pen_field = P_f;
+			Brush_field = B_f;
+			foreach (point pp in l)
+			{//вычисляем max И min всех регионов по x и y 
+				if (pp.get_x() > maxx) maxx = pp.get_x();
+				if (pp.get_x() < minx) minx = pp.get_x();
+				if (pp.get_y() > maxy) maxy = pp.get_y();
+				if (pp.get_y() < miny) miny = pp.get_y();
+				avg_x = avg_x + pp.get_x();//вычисляем сумму по x региона 
+				avg_y = avg_y + pp.get_y();//и вычисляем сумму по y региона
+			}
+			avg_x = avg_x / Convert.ToInt32(count_point);//берем центр по x как среднее значение по x
+			avg_y = avg_y / Convert.ToInt32(count_point);//берем центр по y как среднее значение по y
+		}
+	}
+
+	class MainClass
+	{//считываем регионы ,встраиваем биты изображения в них и переписываем новые значения в новый файл
+		public static void blok_one()
+		{
+			double hell_kol = 0;
+			List<Region_1> R = new List<Region_1>();
+			try
+			{   // Open the text file
+				using (StreamReader sr = new StreamReader("C:\\Users\\Asus-\\Desktop\\НИРС\\BPD.mif"))
+				{
+					using (StreamWriter file = new StreamWriter("C:\\Users\\Asus-\\Desktop\\НИРС\\tup.mif"))
+					{
+						int kol = 0;//счетчик количеста регионов
+									// Список, состоящий из списков точек-вершин -полигон
+						while (!sr.EndOfStream)
+						{
+							string line = sr.ReadLine();
+							string Reg = ("Region 1");
+							string Bounds = ("Bounds");
+							string Points = ("Point");
+							string Symbol = ("Symbol");
+							if (line.Contains(Reg)||line.Contains(Points)||line.Contains(Symbol))
+							{
+								hell_kol = hell_kol + 1;
+							}
+
+
+							if (!line.Contains(Reg) && !line.Contains(Bounds))
+							{
+								file.WriteLine(line);
+							}
+							if (line.Contains(Bounds))
+							{
+								var str = line.Split(' ', ',', '(', ')');
+								Region_1.maxx = Convert.ToDecimal(str[6], CultureInfo.GetCultureInfo("en-US"));//max по x во всех регионах с начала =min по x в карте
+								Region_1.maxy = Convert.ToDecimal(str[8], CultureInfo.GetCultureInfo("en-US"));//max по y во всех регионах с начала =min по y в карте
+								Region_1.minx = Convert.ToDecimal(str[11], CultureInfo.GetCultureInfo("en-US"));//min по x во всех регионах с начала =max по x в карте
+								Region_1.miny = Convert.ToDecimal(str[13], CultureInfo.GetCultureInfo("en-US"));//min по y во всех регионах с начала =max по y в карте
+								file.WriteLine(line);
+							}
+							if (line.Contains(Reg))
+							{
+								kol++;
+								List<point> l = new List<point>();
+								int count_point_loc = Convert.ToInt32(sr.ReadLine());
+								for (int i = 0; i < count_point_loc; i++)
+								{
+									string x_y_point = sr.ReadLine();
+									decimal x = 0;
+									decimal y = 0;
+									var str = x_y_point.Split(' ');
+									x = Convert.ToDecimal(str[0], CultureInfo.GetCultureInfo("en-US"));
+									y = Convert.ToDecimal(str[1], CultureInfo.GetCultureInfo("en-US"));
+									point p = new point(x, y);
+									l.Add(p);
+
+								}
+								string vedro1 = sr.ReadLine();
+								string vedro2 = sr.ReadLine();
+								Region_1 RR = new Region_1(l, Convert.ToString(count_point_loc), vedro1, vedro2);
+								R.Add(RR);
+							}
+						}
+						R = save_bit(R);//встраиваем биты
+						//Вывод полигонов в файл после встраивания
+						foreach (Region_1 RR in R)
+						{
+							file.WriteLine("Region 1");
+							file.WriteLine("  " + Convert.ToString(RR.count_point));
+							foreach (point pp in RR.l)
+							{
+								file.WriteLine(pp.pointToString().Replace(",", "."));
+
+							}
+							file.WriteLine("  " + RR.Pen_field);
+							file.WriteLine("  " + RR.Brush_field);
+						}
+						Console.WriteLine("Before: Count of Region 1 = " + kol);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("The file Error:");
+				Console.WriteLine(e.Message);
+			}
+			Console.WriteLine("hell_kol= "+hell_kol);
+		}
+
+		public static List<Region_1> save_bit(List<Region_1> R)//встраеваем биты изображения в регионы
+		{
+			
+			try
+			{
+				using (StreamWriter file_f = new StreamWriter("C:\\Users\\Asus-\\Desktop\\НИРС\\bp_before.txt"))
+				{
+					three_bits[,] b_before = image_process.save_image();//массив для встраевания исходного изображения 
+					foreach (Region_1 elm in R)
+					{
+						int indx = 0, indy = 0;
+						bp.get_index(elm, ref indx, ref indy);//узнаем индексы битов( в массиве) ,которые нужно встроить
+						elm.l = bp.BP_set(elm, b_before[indx, indy].b1, b_before[indx, indy].b2, b_before[indx, indy].b3);//встраиваем
+																												   //в файл записываем встроенные биты
+						file_f.WriteLine(b_before[indx, indy].b1+" "+ b_before[indx, indy].b2+" " + b_before[indx, indy].b3);
+					}
+				}
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("The file Error:");
+				Console.WriteLine(e.Message);
+			}
+			return R;
+		}
+		//считываем из файла регионы ,извлекаем из них биты и востанавливаем по битам изображение
+		public static void blok_two() 
+		{
+			List<Region_1> R = new List<Region_1>();
+			try
+			{   // Open the text file
+				using (StreamReader file = new StreamReader("C:\\Users\\Asus-\\Desktop\\НИРС\\tup.mif"))
+				{
+					int kol = 0;//счетчик количеста регионоd
+					while (!file.EndOfStream)
+					{
+						string line = file.ReadLine();
+						string Reg = ("Region 1");
+						string Bounds = ("Bounds");
+						if (line.Contains(Bounds))
+						{
+							var str = line.Split(' ', ',', '(', ')');
+							Region_1.maxx = Convert.ToDecimal(str[6], CultureInfo.GetCultureInfo("en-US"));//max по x во всех регионах с начала =min по x в карте
+							Region_1.maxy = Convert.ToDecimal(str[8], CultureInfo.GetCultureInfo("en-US"));//max по y во всех регионах с начала =min по y в карте
+							Region_1.minx = Convert.ToDecimal(str[11], CultureInfo.GetCultureInfo("en-US"));//min по x во всех регионах с начала =max по x в карте
+							Region_1.miny = Convert.ToDecimal(str[13], CultureInfo.GetCultureInfo("en-US"));//min по y во всех регионах с начала =max по y в карте
+						}
+						if (line.Contains(Reg))
+						{
+							kol++;
+							List<point> l = new List<point>();
+							int count_point_loc = Convert.ToInt32(file.ReadLine());
+							for (int i = 0; i < count_point_loc; i++)
+							{
+								string x_y_point = file.ReadLine();
+								decimal x = 0;
+								decimal y = 0;
+								var str = x_y_point.Split(' ');
+								x = Convert.ToDecimal(str[0], CultureInfo.GetCultureInfo("en-US"));
+								y = Convert.ToDecimal(str[1], CultureInfo.GetCultureInfo("en-US"));
+								point p = new point(x, y);
+								l.Add(p);
+
+							}
+							string vedro1 = file.ReadLine();
+							string vedro2 = file.ReadLine();
+							Region_1 RR = new Region_1(l, Convert.ToString(count_point_loc), vedro1, vedro2);
+							R.Add(RR);
+						}
+					}
+					Console.WriteLine("After: Count of Region 1 = " + kol);
+				}
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("The file Error:");
+				Console.WriteLine(e.Message);
+			}
+			restore_bit(R);//востанавливаем изображение и записываем в файл извлеченные биты
+		}
+
+		public static void restore_bit(List<Region_1> R)
+		{
+			try
+			{
+				using (StreamWriter file = new StreamWriter("C:\\Users\\Asus-\\Desktop\\НИРС\\bp_after.txt"))
+				{
+					three_bits[,] b_after = new three_bits[Region_1.Width, Region_1.Height];//массив для восстановления исходного изображения
+					for (int i = 0; i < Region_1.Width; i++)
+						for (int k = 0; k < Region_1.Height; k++)
+							b_after[i, k] = new three_bits(-1, -1, -1);//заполняем массив значением = -1, чтобы знать какие не известны нам биты*/
+					foreach (Region_1 elm in R)
+					{;
+						int indx = 0, indy = 0;
+						bp.get_index(elm, ref indx, ref indy);//узнаем индексы битов( в массиве) ,которые нужно извлечь
+						bp.BP_get(elm, ref b_after[indx, indy].b1, ref b_after[indx, indy].b2, ref b_after[indx, indy].b3);//извлекаем эти биты
+						file.WriteLine(b_after[indx, indy].b1 + " " + b_after[indx, indy].b2 + " " + b_after[indx, indy].b3);//записываем в файл извлеченные биты
+
+					}
+					image_process.restore_image(b_after);//востанавливаем изображение по извлеченным битам
+				}
+			}
+			catch (Exception e)
+			{
+				Console.WriteLine("The file Error:");
+				Console.WriteLine(e.Message);
+			}
+		}
+
+		public static void Main(string[] args)
+		{
+			Console.WriteLine("Start");
+			blok_one();
+			blok_two();
+			Console.WriteLine("The end");
+			Console.ReadKey();
+		}
+	}
+}
